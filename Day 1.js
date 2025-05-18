@@ -32,4 +32,26 @@ Maruf1 = "Maruf Learing "
 Maruf_learing = true
 console.log(Maruf1)
 console.log(Maruf_learing)
+
+//
+// LET , Var , Const
+
 // Step 6
+
+let name = "Sadik"
+let age$ = 19
+console.log(name)
+console.log(age$)
+
+// Step 7
+
+var age = 19
+var age = 20
+var age = 21
+console.log(age)
+// Step 8
+
+const age_1 = 19
+console.log(age_1)
+
+// Step 9
