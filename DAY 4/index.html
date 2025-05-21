@@ -141,6 +141,16 @@
       localStorage.setItem("timeBlocks", JSON.stringify(blocks));
     }
 
+    // Function to get the last block's end time or set a default start time
+    function getNextStartTime() {
+      if (blocks.length === 0) {
+        return "08:00"; // Default starting time if no blocks exist
+      }
+      const lastBlockEnd = blocks[blocks.length - 1].end;
+      return lastBlockEnd; // The next start time is the previous end time
+    }
+
+    // Function to add a block
     function addBlock() {
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
@@ -204,6 +214,7 @@
     }
 
     // Restore data from localStorage when the page loads
+    document.getElementById("start").value = getNextStartTime();
     renderBlocks();
     updateExportText();
   </script>
