@@ -6,7 +6,7 @@
   <style>
     body {
       font-family: 'Arial', sans-serif;
-      background: #f0f2f5;
+      background: #f4f7fc;
       margin: 0;
       padding: 0;
     }
@@ -21,29 +21,42 @@
     h1 {
       text-align: center;
       color: #ff6b6b;
+      font-size: 2rem;
+      margin-bottom: 20px;
     }
     label {
       display: block;
-      margin: 10px 0 5px;
+      margin: 12px 0 5px;
+      font-size: 1.1rem;
       font-weight: bold;
     }
     input, textarea {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-bottom: 15px;
-      border-radius: 10px;
+      border-radius: 8px;
       border: 1px solid #ccc;
+      font-size: 1rem;
       box-sizing: border-box;
+      background: #f9f9f9;
+      transition: all 0.3s ease-in-out;
+    }
+    input:focus, textarea:focus {
+      border-color: #ff6b6b;
+      background-color: #fff;
+      outline: none;
+      box-shadow: 0 0 5px rgba(255, 107, 107, 0.5);
     }
     button {
       background: #ff6b6b;
       color: white;
       border: none;
-      padding: 10px 20px;
-      border-radius: 10px;
+      padding: 12px 25px;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 16px;
-      margin-right: 10px;
+      font-size: 1rem;
+      transition: background 0.3s;
+      margin-right: 15px;
     }
     button:hover {
       background: #ff4b4b;
@@ -52,11 +65,42 @@
       background: #f8f8f8;
       padding: 15px;
       border-left: 5px solid #ff6b6b;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .block strong {
+      font-size: 1.1rem;
+      color: #333;
     }
     #output {
       margin-top: 30px;
+    }
+    #outputText {
+      background: #f4f7fc;
+      border: 1px solid #ddd;
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 8px;
+      color: #333;
+    }
+    .reset-button {
+      background: #ddd;
+      color: #333;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.3s;
+    }
+    .reset-button:hover {
+      background: #ccc;
+    }
+    .buttons-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -73,9 +117,11 @@
     <label for="task">Task Description</label>
     <input type="text" id="task" placeholder="e.g., Working on content" />
 
-    <button onclick="addBlock()">Add Time Block</button>
-    <button onclick="exportBlocks()">Export</button>
-    <button onclick="clearBlocks()">Reset</button>
+    <div class="buttons-container">
+      <button onclick="addBlock()">Add Time Block</button>
+      <button onclick="exportBlocks()">Export</button>
+      <button class="reset-button" onclick="clearBlocks()">Reset</button>
+    </div>
 
     <div id="blocks"></div>
 
