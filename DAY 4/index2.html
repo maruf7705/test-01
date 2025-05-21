@@ -25,28 +25,20 @@
     }
     section {
       margin-bottom: 30px;
+      padding: 20px;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      background-color: #fafafa;
     }
-    label, .pending-task {
+    label {
       display: flex;
       align-items: center;
       margin: 8px 0;
       font-size: 16px;
       color: #333;
     }
-    label input[type="checkbox"], .pending-task input[type="checkbox"] {
+    label input[type="checkbox"] {
       margin-right: 12px;
-    }
-    .pending-task input[type="text"] {
-      flex: 1;
-      padding: 6px;
-      font-size: 15px;
-      margin-right: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    .pending-task.crossed input[type="text"] {
-      text-decoration: line-through;
-      color: #888;
     }
     button {
       margin: 10px 5px 0 0;
@@ -66,17 +58,27 @@
       text-align: center;
       margin-top: 40px;
     }
+    .pending-task {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .pending-task input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-right: 10px;
+      font-size: 14px;
+    }
+    .pending-task input[type="checkbox"] {
+      margin-right: 10px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Megla & Arohi Daily Checklist</h1>
-
-    <section>
-      <h2>Pending Task</h2>
-      <div id="pendingTasks"></div>
-      <button onclick="addPendingTask()">+ Add Task</button>
-    </section>
 
     <section>
       <h2>Strict Ban List</h2>
@@ -124,6 +126,12 @@
       <label><input type="checkbox" /> 8h sleep</label>
     </section>
 
+    <section>
+      <h2>Pending Task</h2>
+      <div id="pendingTasks"></div>
+      <button onclick="addPendingTask()">+ Add Task</button>
+    </section>
+
     <div class="actions">
       <button onclick="resetChecklist()">Reset Checklist</button>
     </div>
@@ -164,18 +172,13 @@
       `;
 
       container.appendChild(div);
-      if (done) div.classList.add('crossed');
+      savePendingTasks();
 
       const checkbox = div.querySelector('input[type="checkbox"]');
       const input = div.querySelector('input[type="text"]');
 
-      checkbox.addEventListener('change', () => {
-        div.classList.toggle('crossed', checkbox.checked);
-        savePendingTasks();
-      });
-
+      checkbox.addEventListener('change', savePendingTasks);
       input.addEventListener('input', savePendingTasks);
-      savePendingTasks();
     }
 
     function removeTask(id) {
