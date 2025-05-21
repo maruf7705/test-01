@@ -75,6 +75,7 @@
 
     <button onclick="addBlock()">Add Time Block</button>
     <button onclick="exportBlocks()">Export</button>
+    <button onclick="clearBlocks()">Reset</button>
 
     <div id="blocks"></div>
 
@@ -85,9 +86,13 @@
   </div>
 
   <script>
-    const blocks = [];
+    const blocks = JSON.parse(localStorage.getItem("timeBlocks") || "[]");
     const blocksDiv = document.getElementById("blocks");
     const outputText = document.getElementById("outputText");
+
+    function saveToLocalStorage() {
+      localStorage.setItem("timeBlocks", JSON.stringify(blocks));
+    }
 
     function addBlock() {
       const start = document.getElementById("start").value;
@@ -101,6 +106,7 @@
 
       const block = { start, end, task };
       blocks.push(block);
+      saveToLocalStorage();
       renderBlocks();
       updateExportText();
 
@@ -139,6 +145,19 @@
       link.click();
       document.body.removeChild(link);
     }
+
+    function clearBlocks() {
+      if (confirm("Are you sure you want to clear all blocks?")) {
+        blocks.length = 0;
+        saveToLocalStorage();
+        renderBlocks();
+        updateExportText();
+      }
+    }
+
+    // Restore on load
+    renderBlocks();
+    updateExportText();
   </script>
 </body>
 </html>
