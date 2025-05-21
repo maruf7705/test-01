@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Time Block Tracker</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #ff6b6b;
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #ff4b4b;
+    }
+    .block {
+      background: #f8f8f8;
+      padding: 15px;
+      border-left: 5px solid #ff6b6b;
+      margin-bottom: 10px;
+      border-radius: 10px;
+    }
+    #output {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Time Block Tracker</h1>
+
+    <label for="start">Start Time</label>
+    <input type="time" id="start" />
+
+    <label for="end">End Time</label>
+    <input type="time" id="end" />
+
+    <label for="task">Task Description</label>
+    <input type="text" id="task" placeholder="e.g., Working on content" />
+
+    <button onclick="addBlock()">Add Time Block</button>
+    <button onclick="exportBlocks()">Export</button>
+
+    <div id="blocks"></div>
+
+    <div id="output">
+      <h2>Export Preview</h2>
+      <textarea id="outputText" rows="10" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    const blocks = [];
+    const blocksDiv = document.getElementById("blocks");
+    const outputText = document.getElementById("outputText");
+
+    function addBlock() {
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
+      const task = document.getElementById("task").value.trim();
+
+      if (!start || !end || !task) {
+        alert("Please fill in all fields!");
+        return;
+      }
+
+      const block = { start, end, task };
+      blocks.push(block);
+      renderBlocks();
+      updateExportText();
+
+      document.getElementById("start").value = end;
+      document.getElementById("end").value = '';
+      document.getElementById("task").value = '';
+    }
+
+    function renderBlocks() {
+      blocksDiv.innerHTML = '';
+      for (const b of blocks) {
+        const div = document.createElement("div");
+        div.className = "block";
+        div.innerHTML = `<strong>${b.start} to ${b.end}</strong><br>${b.task}`;
+        blocksDiv.appendChild(div);
+      }
+    }
+
+    function updateExportText() {
+      const date = new Date().toLocaleDateString();
+      let text = `Date: ${date}\n\n`;
+      for (const b of blocks) {
+        text += `${b.start} to ${b.end}\n${b.task}\n\n`;
+      }
+      outputText.value = text.trim();
+    }
+
+    function exportBlocks() {
+      updateExportText();
+      const blob = new Blob([outputText.value], { type: 'text/plain' });
+      const link = document.createElement('a');
+      const date = new Date().toLocaleDateString().replace(/\//g, '-');
+      link.href = URL.createObjectURL(blob);
+      link.download = `TimeBlock_${date}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
