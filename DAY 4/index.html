@@ -157,9 +157,10 @@
       renderBlocks();        // Re-render the blocks
       updateExportText();    // Update the export preview
 
+      // Set the start time of the next block to the end time of the current one
       document.getElementById("start").value = end;
-      document.getElementById("end").value = '';
-      document.getElementById("task").value = '';
+      document.getElementById("end").value = ''; // Clear end time for next block
+      document.getElementById("task").value = ''; // Clear task input for next block
     }
 
     function renderBlocks() {
