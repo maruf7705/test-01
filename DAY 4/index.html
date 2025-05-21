@@ -108,6 +108,9 @@
   <div class="container">
     <h1>Time Block Tracker</h1>
 
+    <label for="date">Select Date</label>
+    <input type="date" id="date" />
+
     <label for="start">Start Time</label>
     <input type="time" id="start" />
 
@@ -132,13 +135,15 @@
   </div>
 
   <script>
-    let blocks = JSON.parse(localStorage.getItem("timeBlocks") || "[]");
+    // Get the selected date
+    let selectedDate = document.getElementById('date').value || new Date().toISOString().split('T')[0]; // default to today's date
+    let blocks = JSON.parse(localStorage.getItem(selectedDate) || "[]");
     const blocksDiv = document.getElementById("blocks");
     const outputText = document.getElementById("outputText");
 
     // Save blocks to localStorage after any update
     function saveToLocalStorage() {
-      localStorage.setItem("timeBlocks", JSON.stringify(blocks));
+      localStorage.setItem(selectedDate, JSON.stringify(blocks));
     }
 
     // Function to get the last block's end time or set a default start time
@@ -173,6 +178,7 @@
       document.getElementById("task").value = ''; // Clear task input for next block
     }
 
+    // Function to render blocks
     function renderBlocks() {
       blocksDiv.innerHTML = '';
       blocks.forEach(b => {
@@ -183,37 +189,53 @@
       });
     }
 
+    // Function to update the export preview
     function updateExportText() {
-      const date = new Date().toLocaleDateString();
-      let text = `Date: ${date}\n\n`;
+      let text = `Date: ${selectedDate}\n\n`;
       blocks.forEach(b => {
         text += `${b.start} to ${b.end}\n${b.task}\n\n`;
       });
       outputText.value = text.trim();
     }
 
+    // Export the blocks as a .txt file and clear the data for that day
     function exportBlocks() {
       updateExportText();
       const blob = new Blob([outputText.value], { type: 'text/plain' });
       const link = document.createElement('a');
-      const date = new Date().toLocaleDateString().replace(/\//g, '-');
       link.href = URL.createObjectURL(blob);
-      link.download = `TimeBlock_${date}.txt`;
+      link.download = `TimeBlock_${selectedDate}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      // Clear the blocks after downloading
+      blocks = [];
+      saveToLocalStorage();
+      renderBlocks();
+      updateExportText();
     }
 
+    // Clear blocks for the current date
     function clearBlocks() {
-      if (confirm("Are you sure you want to clear all blocks?")) {
+      if (confirm("Are you sure you want to clear all blocks for today?")) {
         blocks = [];
-        saveToLocalStorage(); // Clear and save empty array
-        renderBlocks();       // Re-render the blocks (empty now)
-        updateExportText();   // Clear export preview
+        saveToLocalStorage();
+        renderBlocks();
+        updateExportText();
       }
     }
 
-    // Restore data from localStorage when the page loads
+    // Update the selected date and load the associated blocks
+    document.getElementById('date').addEventListener('change', function() {
+      selectedDate = this.value;
+      blocks = JSON.parse(localStorage.getItem(selectedDate) || "[]");
+      document.getElementById("start").value = getNextStartTime();
+      renderBlocks();
+      updateExportText();
+    });
+
+    // Initialize the page with blocks for the selected date
     document.getElementById("start").value = getNextStartTime();
     renderBlocks();
     updateExportText();
