@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Time Block Tracker</title>
+  <title>Time Block Tracker with Pomodoro</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -30,7 +30,7 @@
       font-size: 1.1rem;
       font-weight: bold;
     }
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       padding: 12px;
       margin-bottom: 15px;
@@ -41,7 +41,7 @@
       background: #f9f9f9;
       transition: all 0.3s ease-in-out;
     }
-    input:focus, textarea:focus {
+    input:focus, textarea:focus, select:focus {
       border-color: #ff6b6b;
       background-color: #fff;
       outline: none;
@@ -62,16 +62,14 @@
       background: #ff4b4b;
     }
     .block {
-      background: #f8f8f8;
       padding: 15px;
-      border-left: 5px solid #ff6b6b;
       margin-bottom: 15px;
       border-radius: 10px;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      color: white;
     }
     .block strong {
       font-size: 1.1rem;
-      color: #333;
     }
     #output {
       margin-top: 30px;
@@ -102,11 +100,22 @@
       justify-content: space-between;
       margin-top: 20px;
     }
+    .timer-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .timer-display {
+      font-size: 3rem;
+      margin-top: 10px;
+    }
+    .notes-container {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Time Block Tracker</h1>
+    <h1>Time Block Tracker with Pomodoro</h1>
 
     <label for="start">Start Time</label>
     <input type="time" id="start" />
@@ -114,8 +123,16 @@
     <label for="end">End Time</label>
     <input type="time" id="end" />
 
-    <label for="task">Task Description</label>
+    <label for="task">Task Description (Optional for Breaks)</label>
     <input type="text" id="task" placeholder="e.g., Working on content" />
+
+    <label for="category">Task Category</label>
+    <select id="category">
+      <option value="work">Work</option>
+      <option value="break">Break</option>
+      <option value="meeting">Meeting</option>
+      <option value="other">Other</option>
+    </select>
 
     <div class="buttons-container">
       <button onclick="addBlock()">Add Time Block</button>
@@ -129,39 +146,59 @@
       <h2>Export Preview</h2>
       <textarea id="outputText" rows="10" readonly></textarea>
     </div>
+
+    <!-- Pomodoro Timer -->
+    <div class="timer-container">
+      <button id="startPomodoro" onclick="startPomodoro()">Start Pomodoro</button>
+      <button id="stopPomodoro" onclick="stopPomodoro()" disabled>Stop Pomodoro</button>
+      <div id="timer" class="timer-display">25:00</div>
+    </div>
+
+    <!-- Task Notes Section -->
+    <div class="notes-container">
+      <label for="notes">Task Notes</label>
+      <textarea id="notes" placeholder="Add any notes here..."></textarea>
+    </div>
   </div>
 
   <script>
     let blocks = JSON.parse(localStorage.getItem("timeBlocks") || "[]");
     const blocksDiv = document.getElementById("blocks");
     const outputText = document.getElementById("outputText");
+    const timerDisplay = document.getElementById("timer");
+    const notes = document.getElementById("notes");
+    let pomodoroTimer;
+    let timeRemaining = 25 * 60; // 25 minutes in seconds
+    let isPomodoroActive = false;
+    let pomodoroCycles = 0;
+
+    const categoryColors = {
+      work: '#4CAF50',  // Green for Work
+      break: '#FF9800', // Orange for Break
+      meeting: '#2196F3', // Blue for Meeting
+      other: '#9E9E9E'  // Gray for Other
+    };
 
     // Save blocks to localStorage after any update
     function saveToLocalStorage() {
       localStorage.setItem("timeBlocks", JSON.stringify(blocks));
     }
 
-    // Function to get the last block's end time or set a default start time
-    function getNextStartTime() {
-      if (blocks.length === 0) {
-        return "08:00"; // Default starting time if no blocks exist
-      }
-      const lastBlockEnd = blocks[blocks.length - 1].end;
-      return lastBlockEnd; // The next start time is the previous end time
-    }
-
-    // Function to add a block
     function addBlock() {
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
       const task = document.getElementById("task").value.trim();
+      const category = document.getElementById("category").value;
 
-      if (!start || !end || !task) {
+      if (!start || !end || (category === 'other' && !task)) {
         alert("Please fill in all fields!");
         return;
       }
 
-      const block = { start, end, task };
+      // If the category is "Break", auto-fill task as "Break"
+      const blockTask = category === 'break' ? 'Break' : task;
+
+      const block = { start, end, task: blockTask, category, notes: notes.value };
       blocks.push(block);
       saveToLocalStorage();  // Save to localStorage
       renderBlocks();        // Re-render the blocks
@@ -171,58 +208,98 @@
       document.getElementById("start").value = end;
       document.getElementById("end").value = ''; // Clear end time for next block
       document.getElementById("task").value = ''; // Clear task input for next block
+      notes.value = ''; // Clear task notes for next block
     }
 
-    // Function to render blocks
     function renderBlocks() {
       blocksDiv.innerHTML = '';
       blocks.forEach(b => {
         const div = document.createElement("div");
         div.className = "block";
-        div.innerHTML = `<strong>${b.start} to ${b.end}</strong><br>${b.task}`;
+        div.style.backgroundColor = categoryColors[b.category]; // Set color based on category
+        div.innerHTML = `<strong>${b.start} to ${b.end}</strong><br>${b.task}<br><strong>Notes:</strong> ${b.notes}`;
         blocksDiv.appendChild(div);
       });
     }
 
-    // Function to update the export preview
     function updateExportText() {
-      let text = `Time Blocks:\n\n`;
+      const date = new Date().toLocaleDateString();
+      let text = `Date: ${date}\n\n`;
       blocks.forEach(b => {
-        text += `${b.start} to ${b.end}\n${b.task}\n\n`;
+        text += `${b.start} to ${b.end}\n${b.task}\nNotes: ${b.notes}\n\n`;
       });
       outputText.value = text.trim();
     }
 
-    // Export the blocks as a .txt file and clear the data
     function exportBlocks() {
       updateExportText();
       const blob = new Blob([outputText.value], { type: 'text/plain' });
       const link = document.createElement('a');
+      const date = new Date().toLocaleDateString().replace(/\//g, '-');
       link.href = URL.createObjectURL(blob);
-      link.download = `TimeBlocks.txt`;
+      link.download = `TimeBlock_${date}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      // Clear the blocks after downloading
-      blocks = [];
-      saveToLocalStorage();
-      renderBlocks();
-      updateExportText();
     }
 
-    // Clear blocks
     function clearBlocks() {
       if (confirm("Are you sure you want to clear all blocks?")) {
         blocks = [];
-        saveToLocalStorage();
-        renderBlocks();
-        updateExportText();
+        saveToLocalStorage(); // Clear and save empty array
+        renderBlocks();       // Re-render the blocks (empty now)
+        updateExportText();   // Clear export preview
       }
     }
 
-    // Initialize with default start time
-    document.getElementById("start").value = getNextStartTime();
+    // Pomodoro Timer Logic
+    function startPomodoro() {
+      if (isPomodoroActive) return; // Prevent multiple timers
+      isPomodoroActive = true;
+      document.getElementById("startPomodoro").disabled = true;
+      document.getElementById("stopPomodoro").disabled = false;
+      pomodoroTimer = setInterval(updatePomodoro, 1000);
+    }
+
+    function stopPomodoro() {
+      clearInterval(pomodoroTimer);
+      document.getElementById("startPomodoro").disabled = false;
+      document.getElementById("stopPomodoro").disabled = true;
+      isPomodoroActive = false;
+      timerDisplay.textContent = "25:00"; // Reset to 25 minutes
+    }
+
+    function updatePomodoro() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+      if (timeRemaining <= 0) {
+        clearInterval(pomodoroTimer);
+        alert("Pomodoro session completed! Time for a break.");
+        startBreak(); // Start the break after work session
+      } else {
+        timeRemaining--;
+      }
+    }
+
+    function startBreak() {
+      // Increment cycle counter
+      pomodoroCycles++;
+
+      if (pomodoroCycles % 4 === 0) {
+        // Long break after 4 cycles
+        timeRemaining = 15 * 60;
+        alert("Time for a long break! 15 minutes.");
+      } else {
+        // Short break after each work session
+        timeRemaining = 5 * 60;
+        alert("Time for a short break! 5 minutes.");
+      }
+      startPomodoro();
+    }
+
+    // Initialize
     renderBlocks();
     updateExportText();
   </script>
