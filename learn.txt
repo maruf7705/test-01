@@ -1,0 +1,3 @@
+1. Pactice count like "Codenestx" , How many latter in Codenestx
+2. Print 10time "I love Sweet"
+3. Print "sweet with one one latter "
