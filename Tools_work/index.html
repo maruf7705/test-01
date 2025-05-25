@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Task Checklist</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 40px;
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        .task-input {
+            display: flex;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .task-input input {
+            width: 75%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .task-input input:focus {
+            border-color: #4CAF50;
+        }
+
+        .task-input button {
+            padding: 12px 20px;
+            margin-left: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .task-input button:hover {
+            background-color: #45a049;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        li.completed {
+            background-color: #e1ffe1;
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        li:hover {
+            background-color: #f1f1f1;
+        }
+
+        button.remove-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button.remove-btn:hover {
+            background-color: #e53935;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        button.export-btn,
+        button.clear-btn {
+            width: 48%;
+            padding: 14px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        button.export-btn:hover,
+        button.clear-btn:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Daily Task Checklist</h1>
+        <div class="task-input">
+            <input type="text" id="taskInput" placeholder="Add a new task...">
+            <button onclick="addTask()">Add</button>
+        </div>
+        <ul id="taskList"></ul>
+        <div class="button-group">
+            <button class="export-btn" onclick="exportTXT()">Export to TXT</button>
+            <button class="clear-btn" onclick="clearAllTasks()">Clear All Tasks</button>
+        </div>
+    </div>
+
+    <script>
+        // Load tasks from localStorage on page load
+        document.addEventListener("DOMContentLoaded", loadTasks);
+
+        // Function to add a task
+        function addTask() {
+            const taskInput = document.getElementById("taskInput");
+            const taskValue = taskInput.value.trim();
+
+            if (taskValue === "") return;
+
+            const tasks = getTasksFromStorage();
+            tasks.push({ name: taskValue, completed: false });
+            saveTasksToStorage(tasks);
+
+            taskInput.value = "";
+            loadTasks();
+        }
+
+        // Function to toggle task completion (strikethrough)
+        function toggleTaskCompletion(checkbox) {
+            const taskName = checkbox.nextElementSibling.textContent;
+            const tasks = getTasksFromStorage();
+            const task = tasks.find(t => t.name === taskName);
+            if (task) {
+                task.completed = checkbox.checked;
+                saveTasksToStorage(tasks);
+            }
+            checkbox.parentElement.classList.toggle("completed", checkbox.checked);
+        }
+
+        // Function to remove a task
+        function removeTask(button) {
+            const taskName = button.parentElement.querySelector('span').textContent;
+            const tasks = getTasksFromStorage();
+            const updatedTasks = tasks.filter(t => t.name !== taskName);
+            saveTasksToStorage(updatedTasks);
+            loadTasks();
+        }
+
+        // Function to load tasks from localStorage
+        function loadTasks() {
+            const tasks = getTasksFromStorage();
+            const taskList = document.getElementById("taskList");
+            taskList.innerHTML = ""; // Clear the task list
+
+            tasks.forEach(task => {
+                const listItem = document.createElement("li");
+                listItem.classList.toggle("completed", task.completed);
+                listItem.innerHTML = `
+                    <input type="checkbox" ${task.completed ? "checked" : ""} onclick="toggleTaskCompletion(this)">
+                    <span>${task.name}</span>
+                    <button class="remove-btn" onclick="removeTask(this)">Remove</button>
+                `;
+                taskList.appendChild(listItem);
+            });
+        }
+
+        // Function to get tasks from localStorage
+        function getTasksFromStorage() {
+            const tasks = localStorage.getItem("tasks");
+            return tasks ? JSON.parse(tasks) : [];
+        }
+
+        // Function to save tasks to localStorage
+        function saveTasksToStorage(tasks) {
+            localStorage.setItem("tasks", JSON.stringify(tasks));
+        }
+
+        // Function to export tasks to TXT file
+        function exportTXT() {
+            const tasks = getTasksFromStorage();
+            let txtContent = "Task List:\n\n";
+
+            // Separate completed and incomplete tasks
+            const completedTasks = tasks.filter(task => task.completed);
+            const incompleteTasks = tasks.filter(task => !task.completed);
+
+            if (incompleteTasks.length > 0) {
+                txtContent += "Incomplete Tasks:\n";
+                incompleteTasks.forEach(task => {
+                    txtContent += `${task.name} - Not Completed\n`;
+                });
+                txtContent += "\n";
+            }
+
+            if (completedTasks.length > 0) {
+                txtContent += "Completed Tasks:\n";
+                completedTasks.forEach(task => {
+                    txtContent += `${task.name} - Completed\n`;
+                });
+            }
+
+            const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "tasks.txt";
+            link.click();
+        }
+
+        // Function to clear all tasks from localStorage and the task list
+        function clearAllTasks() {
+            const confirmClear = window.confirm("Are you sure you want to clear all tasks? This action cannot be undone.");
+
+            if (confirmClear) {
+                localStorage.removeItem("tasks");
+                loadTasks();  // Reload the empty list
+            }
+        }
+    </script>
+</body>
+</html>

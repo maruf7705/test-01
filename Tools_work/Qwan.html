@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Combined To-Do & Time Tracker</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com "></script>
+  <!-- Font: Roboto Flex -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex :wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Roboto Flex', sans-serif;
+    }
+    .strikethrough {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+    .fade-enter {
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .fade-enter-active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+  <div class="max-w-4xl mx-auto space-y-10">
+
+    <!-- ========= TO-DO LIST SECTION ========= -->
+    <section class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-bold mb-4 text-blue-600">To-Do List</h2>
+
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input id="taskInput"
+               type="text"
+               placeholder="Add a new task..."
+               class="flex-grow px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+
+        <button id="addTaskBtn"
+                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+          Add Task
+        </button>
+      </div>
+
+      <p id="errorMsg" class="text-red-500 text-sm hidden">Task cannot be empty.</p>
+
+      <ul id="taskList"
+          class="space-y-2 max-h-96 overflow-auto p-2 border-t border-b border-gray-200">
+      </ul>
+
+      <p id="emptyMessage" class="text-center text-gray-500 mt-4 hidden">No tasks available. Start by adding one!</p>
+
+      <div class="mt-4 flex justify-between items-center">
+        <div id="taskCounter" class="text-sm text-gray-600"></div>
+        <div class="space-x-2">
+          <button data-filter="all" class="filter-btn px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 active:bg-blue-200">All</button>
+          <button data-filter="incomplete" class="filter-btn px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Incomplete</button>
+          <button data-filter="completed" class="filter-btn px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Completed</button>
+        </div>
+      </div>
+
+      <div class="mt-4 flex gap-2">
+        <button id="exportTasksBtn"
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">
+          Export Tasks
+        </button>
+        <button id="clearAllBtn"
+                class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">
+          Clear All
+        </button>
+      </div>
+    </section>
+
+    <!-- ========= TIME BLOCK TRACKER SECTION ========= -->
+    <section class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-bold mb-4 text-blue-600">Time Block Tracker</h2>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="start">Start Time</label>
+          <input type="time" id="start" class="w-full border rounded p-2" />
+        </div>
+        <div>
+          <label for="end">End Time</label>
+          <input type="time" id="end" class="w-full border rounded p-2" />
+        </div>
+        <div class="md:col-span-2">
+          <label for="tb_task">Task Description</label>
+          <input type="text" id="tb_task" placeholder="e.g., Working on content" class="w-full border rounded p-2" />
+        </div>
+        <div class="md:col-span-2">
+          <label for="tb_notes">Notes</label>
+          <textarea id="tb_notes" placeholder="Add any notes here..." rows="3" class="w-full border rounded p-2"></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="addBlock()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Time Block</button>
+        <button onclick="exportBlocks()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Export</button>
+        <button onclick="clearBlocks()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Reset</button>
+      </div>
+
+      <!-- Hidden Blocks Container -->
+      <div id="blocks" class="hidden"></div>
+
+      <div class="mt-6">
+        <h3 class="font-semibold mb-2">Export Preview</h3>
+        <textarea id="outputText" rows="6" readonly class="w-full border rounded p-2 bg-gray-100"></textarea>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- CONFIRM MODAL -->
+  <div id="confirmModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded shadow w-80">
+      <p class="mb-4">Are you sure you want to delete all tasks?</p>
+      <div class="flex justify-end gap-2">
+        <button id="confirmCancel" class="px-3 py-1 bg-gray-300 rounded">Cancel</button>
+        <button id="confirmConfirm" class="px-3 py-1 bg-red-600 text-white rounded">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script>
+    // ====== TO-DO LIST LOGIC ======
+    const taskInput = document.getElementById('taskInput');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const errorMsg = document.getElementById('errorMsg');
+    const taskList = document.getElementById('taskList');
+    const emptyMessage = document.getElementById('emptyMessage');
+    const taskCounter = document.getElementById('taskCounter');
+    const exportTasksBtn = document.getElementById('exportTasksBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const confirmModal = document.getElementById('confirmModal');
+
+    let tasks = [];
+    let filter = 'all';
+
+    function loadTasks() {
+      const stored = localStorage.getItem('tasks');
+      if (stored) {
+        try {
+          tasks = JSON.parse(stored).sort((a, b) => a.order - b.order);
+        } catch {}
+      }
+      renderTasks();
+    }
+
+    function saveTasks() {
+      try {
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+      } catch {
+        alert("Failed to save tasks.");
+      }
+    }
+
+    function generateId() { return Date.now().toString(36); }
+
+    function addTask(text) {
+      if (!text.trim()) {
+        showError("Task cannot be empty.");
+        return;
+      }
+      const task = {
+        id: generateId(),
+        text,
+        completed: false,
+        order: tasks.length,
+        createdAt: new Date().toISOString()
+      };
+      tasks.push(task);
+      saveTasks();
+      renderTasks();
+      taskInput.value = '';
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.remove('hidden');
+      setTimeout(() => errorMsg.classList.add('hidden'), 3000);
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = '';
+      const filtered = tasks.filter(t =>
+        filter === 'all' ? true :
+        filter === 'completed' ? t.completed : !t.completed
+      );
+
+      if (filtered.length === 0) {
+        emptyMessage.classList.remove('hidden');
+      } else {
+        emptyMessage.classList.add('hidden');
+      }
+
+      filtered.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'group flex items-center justify-between p-2 border rounded shadow-sm bg-white fade-enter';
+        li.dataset.id = task.id;
+        li.draggable = true;
+        li.innerHTML = `
+          <label class="flex items-center gap-2 cursor-pointer flex-grow min-w-0">
+            <input type="checkbox" ${task.completed ? 'checked' : ''} aria-checked="${task.completed}"
+                   class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-0"/>
+            <span class="truncate ${task.completed ? 'strikethrough' : ''}" title="${task.text}">
+              ${task.text}
+            </span>
+          </label>
+          <button class="ml-2 text-red-500 hover:text-red-700 focus:outline-none" aria-label="Remove task">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+          </button>
+        `;
+        li.querySelector('input[type="checkbox"]').addEventListener('change', () => toggleTask(task.id));
+        li.querySelector('button').addEventListener('click', () => removeTask(task.id));
+        li.addEventListener('dragstart', handleDragStart);
+        li.addEventListener('dragend', handleDragEnd);
+        li.addEventListener('dblclick', () => editTask(task.id));
+
+        setTimeout(() => li.classList.add('fade-enter-active'), 10);
+
+        taskList.appendChild(li);
+      });
+
+      updateCounter();
+    }
+
+    function updateCounter() {
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.completed).length;
+      taskCounter.textContent = `Tasks: ${total} (${completed} completed)`;
+    }
+
+    function toggleTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.completed = !task.completed;
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    function removeTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      saveTasks();
+      renderTasks();
+    }
+
+    function editTask(id) {
+      const task = tasks.find(t => t.id === id);
+      const newText = prompt("Edit task:", task.text);
+      if (newText && newText.trim()) {
+        task.text = newText.trim();
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    // Drag and Drop
+    let draggedItem = null;
+    function handleDragStart(e) {
+      draggedItem = this;
+      this.classList.add('opacity-50');
+    }
+
+    function handleDragEnd(e) {
+      this.classList.remove('opacity-50');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (draggedItem && draggedItem !== this) {
+        const fromIndex = tasks.findIndex(t => t.id === draggedItem.dataset.id);
+        const toIndex = tasks.findIndex(t => t.id === this.dataset.id);
+        const [moved] = tasks.splice(fromIndex, 1);
+        tasks.splice(toIndex, 0, moved);
+        tasks.forEach((t, i) => t.order = i);
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+    }
+
+    function exportTasks() {
+      const completed = tasks.filter(t => t.completed).map(t => `- ${t.text}`).join('\n');
+      const incomplete = tasks.filter(t => !t.completed).map(t => `- ${t.text}`).join('\n');
+
+      const content = `Incomplete Tasks\n${incomplete}\n\nCompleted Tasks\n${completed}`;
+      const blob = new Blob([content], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const date = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `Todo_List_${date}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function showConfirmModal() { confirmModal.classList.remove('hidden'); }
+    function hideConfirmModal() { confirmModal.classList.add('hidden'); }
+    function clearAllTasks() {
+      tasks = [];
+      saveTasks();
+      renderTasks();
+      hideConfirmModal();
+    }
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active:bg-blue-200'));
+        btn.classList.add('active:bg-blue-200');
+        renderTasks();
+      });
+    });
+
+    addTaskBtn.addEventListener('click', () => addTask(taskInput.value));
+    taskInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') addTask(taskInput.value);
+    });
+
+    exportTasksBtn.addEventListener('click', exportTasks);
+    clearAllBtn.addEventListener('click', showConfirmModal);
+    document.getElementById('confirmCancel').addEventListener('click', hideConfirmModal);
+    document.getElementById('confirmConfirm').addEventListener('click', clearAllTasks);
+
+    // ====== TIME BLOCK TRACKER LOGIC ======
+    let timeBlocks = JSON.parse(localStorage.getItem("timeBlocks") || "[]");
+
+    function addBlock() {
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
+      const task = document.getElementById("tb_task").value.trim();
+      const notes = document.getElementById("tb_notes").value;
+
+      if (!start || !end || !task) {
+        alert("Please fill in all required fields!");
+        return;
+      }
+
+      const block = { start, end, task, notes };
+      timeBlocks.push(block);
+      localStorage.setItem("timeBlocks", JSON.stringify(timeBlocks));
+      updateExportPreview();
+
+      document.getElementById("start").value = end;
+      document.getElementById("end").value = "";
+      document.getElementById("tb_task").value = "";
+      document.getElementById("tb_notes").value = "";
+    }
+
+    function updateExportPreview() {
+      const output = document.getElementById("outputText");
+      const date = new Date().toLocaleDateString();
+      let text = `Date: ${date}\n\n`;
+      timeBlocks.forEach(b => {
+        text += `${b.start} to ${b.end}\n${b.task}\nNotes: ${b.notes || '-'}\n\n`;
+      });
+      output.value = text.trim();
+    }
+
+    function exportBlocks() {
+      updateExportPreview();
+      const blob = new Blob([document.getElementById("outputText").value], { type: 'text/plain' });
+      const link = document.createElement('a');
+      const date = new Date().toLocaleDateString().replace(/\//g, '-');
+      link.href = URL.createObjectURL(blob);
+      link.download = `TimeBlock_${date}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function clearBlocks() {
+      if (confirm("Are you sure you want to clear all time blocks?")) {
+        timeBlocks = [];
+        localStorage.removeItem("timeBlocks");
+        updateExportPreview();
+      }
+    }
+
+    window.onload = function () {
+      loadTasks();
+      updateExportPreview(); // just initialize the preview
+      document.getElementById("blocks").innerHTML = ""; // optional cleanup
+    };
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .task-enter { animation: fadeIn 0.3s ease-in; }
+        .task-exit { animation: fadeOut 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .draggable { cursor: move; }
+        .dragging { opacity: 0.5; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
+    <div class="w-full max-w-[800px] mx-4 my-8 p-6 bg-white rounded-lg shadow-lg">
+        <!-- Top Bar -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <div class="flex-1">
+                <input
+                    type="text"
+                    id="taskInput"
+                    placeholder="Add a new task..."
+                    class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Enter a new task"
+                >
+                <p id="errorMessage" class="text-red-500 text-sm mt-1 hidden">Task cannot be empty</p>
+            </div>
+            <div class="flex gap-2">
+                <button
+                    id="addTaskBtn"
+                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Add task"
+                >Add Task</button>
+                <button
+                    id="exportTasksBtn"
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    aria-label="Export tasks"
+                >Export Tasks</button>
+                <button
+                    id="clearTasksBtn"
+                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    aria-label="Clear all tasks"
+                >Clear All Tasks</button>
+            </div>
+        </div>
+
+        <!-- Filter and Task Counter -->
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <label for="filterTasks" class="sr-only">Filter tasks</label>
+                <select
+                    id="filterTasks"
+                    class="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Filter tasks"
+                >
+                    <option value="all">All Tasks</option>
+                    <option value="incomplete">Incomplete Tasks</option>
+                    <option value="completed">Completed Tasks</option>
+                </select>
+            </div>
+            <p id="taskCounter" class="text-gray-600">Tasks: 0 (0 completed)</p>
+        </div>
+
+        <!-- Task List -->
+        <ul id="taskList" class="space-y-2 max-h-[400px] overflow-y-auto" role="list">
+            <li id="noTasks" class="text-gray-500 text-center">No tasks available</li>
+        </ul>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div id="confirmDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+            <p class="mb-4">Are you sure you want to delete all tasks?</p>
+            <div class="flex justify-end gap-2">
+                <button
+                    id="cancelClearBtn"
+                    class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    aria-label="Cancel clear all tasks"
+                >Cancel</button>
+                <button
+                    id="confirmClearBtn"
+                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    aria-label="Confirm clear all tasks"
+                >Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Task Management
+        let tasks = [];
+        let draggedTask = null;
+
+        function loadTasks() {
+            try {
+                const savedTasks = localStorage.getItem('tasks');
+                tasks = savedTasks ? JSON.parse(savedTasks) : [];
+                renderTasks();
+            } catch (e) {
+                showError('Failed to load tasks from storage.');
+            }
+        }
+
+        function saveTasks() {
+            try {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            } catch (e) {
+                showError('Failed to save tasks. Storage may be full.');
+            }
+        }
+
+        function addTask(text) {
+            if (!text.trim()) {
+                showError('Task cannot be empty');
+                return false;
+            }
+            const task = {
+                id: crypto.randomUUID(),
+                text: text.trim(),
+                completed: false,
+                order: tasks.length
+            };
+            tasks.push(task);
+            saveTasks();
+            renderTasks();
+            return true;
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        function removeTask(id) {
+            const taskLi = document.querySelector(`[data-id="${id}"]`);
+            taskLi.classList.add('task-exit');
+            setTimeout(() => {
+                tasks = tasks.filter(t => t.id !== id);
+                saveTasks();
+                renderTasks();
+            }, 300);
+        }
+
+        function editTask(id, newText) {
+            const task = tasks.find(t => t.id === id);
+            if (task && newText.trim()) {
+                task.text = newText.trim();
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        function renderTasks(filter = 'all') {
+            const taskList = document.getElementById('taskList');
+            const noTasks = document.getElementById('noTasks');
+            taskList.innerHTML = '';
+            const filteredTasks = tasks.filter(task => {
+                if (filter === 'completed') return task.completed;
+                if (filter === 'incomplete') return !task.completed;
+                return true;
+            }).sort((a, b) => a.order - b.order);
+
+            if (filteredTasks.length === 0) {
+                noTasks.classList.remove('hidden');
+            } else {
+                noTasks.classList.add('hidden');
+                filteredTasks.forEach(task => {
+                    const li = document.createElement('li');
+                    li.dataset.id = task.id;
+                    li.draggable = true;
+                    li.classList.add('flex', 'items-center', 'p-2', 'bg-gray-50', 'rounded', 'task-enter', 'draggable');
+                    li.innerHTML = `
+                        <input
+                            type="checkbox"
+                            ${task.completed ? 'checked' : ''}
+                            class="mr-2 focus:ring-blue-500"
+                            aria-label="Toggle task completion"
+                            aria-checked="${task.completed}"
+                        >
+                        <span
+                            class="flex-1 truncate ${task.completed ? 'line-through opacity-50' : ''}"
+                            title="${task.text}"
+                        >${task.text}</span>
+                        <button
+                            class="ml-2 text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                            aria-label="Remove task"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    `;
+                    taskList.appendChild(li);
+
+                    // Checkbox event
+                    li.querySelector('input[type="checkbox"]').addEventListener('change', () => toggleTask(task.id));
+
+                    // Edit task on click
+                    const textSpan = li.querySelector('span');
+                    textSpan.addEventListener('click', () => {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = task.text;
+                        input.classList.add('flex-1', 'p-1', 'border', 'border-gray-300', 'rounded', 'focus:outline-none', 'focus:ring-2', 'focus:ring-blue-500');
+                        textSpan.replaceWith(input);
+                        input.focus();
+                        input.addEventListener('blur', () => {
+                            editTask(task.id, input.value);
+                        });
+                        input.addEventListener('keypress', (e) => {
+                            if (e.key === 'Enter') {
+                                editTask(task.id, input.value);
+                            }
+                        });
+                    });
+
+                    // Remove button
+                    li.querySelector('button').addEventListener('click', () => removeTask(task.id));
+
+                    // Drag and drop
+                    li.addEventListener('dragstart', (e) => {
+                        draggedTask = task;
+                        li.classList.add('dragging');
+                        e.dataTransfer.setData('text/plain', task.id);
+                    });
+                    li.addEventListener('dragend', () => {
+                        li.classList.remove('dragging');
+                        draggedTask = null;
+                    });
+                    li.addEventListener('dragover', (e) => e.preventDefault());
+                    li.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        const targetId = e.target.closest('li').dataset.id;
+                        const targetTask = tasks.find(t => t.id === targetId);
+                        if (draggedTask && targetTask && draggedTask.id !== targetTask.id) {
+                            tasks = tasks.filter(t => t.id !== draggedTask.id);
+                            const targetIndex = tasks.findIndex(t => t.id === targetTask.id);
+                            tasks.splice(targetIndex, 0, draggedTask);
+                            tasks.forEach((t, i) => t.order = i);
+                            saveTasks();
+                            renderTasks(filter);
+                        }
+                    });
+                });
+            }
+            updateTaskCounter();
+        }
+
+        function updateTaskCounter() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            document.getElementById('taskCounter').textContent = `Tasks: ${total} (${completed} completed)`;
+        }
+
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => errorMessage.classList.add('hidden'), 3000);
+        }
+
+        function exportTasks() {
+            const date = new Date().toISOString().split('T')[0];
+            const completedTasks = tasks.filter(t => t.completed).map(t => `- ${t.text}`).join('\n');
+            const incompleteTasks = tasks.filter(t => !t.completed).map(t => `- ${t.text}`).join('\n');
+            const content = `Todo List (${date})\n\nIncomplete Tasks:\n${incompleteTasks || '- None'}\n\nCompleted Tasks:\n${completedTasks || '- None'}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Todo_List_${date}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function clearTasks() {
+            document.getElementById('confirmDialog').classList.remove('hidden');
+        }
+
+        function confirmClear() {
+            tasks = [];
+            saveTasks();
+            renderTasks();
+            document.getElementById('confirmDialog').classList.add('hidden');
+        }
+
+        // Event Listeners
+        document.getElementById('addTaskBtn').addEventListener('click', () => {
+            const input = document.getElementById('taskInput');
+            if (addTask(input.value)) {
+                input.value = '';
+            }
+        });
+
+        document.getElementById('taskInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const input = document.getElementById('taskInput');
+                if (addTask(input.value)) {
+                    input.value = '';
+                }
+            }
+        });
+
+        document.getElementById('exportTasksBtn').addEventListener('click', exportTasks);
+
+        document.getElementById('clearTasksBtn').addEventListener('click', clearTasks);
+
+        document.getElementById('cancelClearBtn').addEventListener('click', () => {
+            document.getElementById('confirmDialog').classList.add('hidden');
+        });
+
+        document.getElementById('confirmClearBtn').addEventListener('click', confirmClear);
+
+        document.getElementById('filterTasks').addEventListener('change', (e) => {
+            renderTasks(e.target.value);
+        });
+
+        // Debounce input
+        let debounceTimer;
+        document.getElementById('taskInput').addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const errorMessage = document.getElementById('errorMessage');
+                if (!document.getElementById('taskInput').value.trim()) {
+                    errorMessage.classList.remove('hidden');
+                } else {
+                    errorMessage.classList.add('hidden');
+                }
+            }, 300);
+        });
+
+        // Initialize
+        loadTasks();
+    </script>
+</body>
+</html>
