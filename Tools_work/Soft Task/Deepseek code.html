@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Todo List</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        .task-item.dragging {
+            opacity: 0.5;
+            background-color: #f3f4f6;
+        }
+        
+        .task-item.drag-over {
+            border-top: 2px solid #3b82f6;
+        }
+        
+        .truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        @media (max-width: 640px) {
+            .input-group {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .input-group input {
+                width: 100%;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .action-buttons button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Todo List</h1>
+            <p class="text-gray-600">Stay organized and boost your productivity</p>
+        </header>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="input-group flex flex-wrap gap-2 mb-4">
+                <input 
+                    type="text" 
+                    id="taskInput" 
+                    placeholder="Add a new task..." 
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    aria-label="Task input field"
+                >
+                <button 
+                    id="addTaskBtn" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    aria-label="Add task"
+                >
+                    <i class="fas fa-plus mr-2"></i> Add Task
+                </button>
+            </div>
+            
+            <div id="errorMessage" class="text-red-500 text-sm mb-4 hidden">
+                Task cannot be empty
+            </div>
+            
+            <div class="flex justify-between items-center mb-4">
+                <div id="taskCounter" class="text-gray-600 font-medium">
+                    Tasks: 0 (0 completed)
+                </div>
+                
+                <div class="action-buttons flex gap-2">
+                    <select 
+                        id="filterSelect" 
+                        class="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label="Filter tasks"
+                    >
+                        <option value="all">All Tasks</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                    
+                    <button 
+                        id="exportBtn" 
+                        class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        aria-label="Export tasks"
+                    >
+                        <i class="fas fa-file-export mr-2"></i> Export
+                    </button>
+                    
+                    <button 
+                        id="clearAllBtn" 
+                        class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                        aria-label="Clear all tasks"
+                    >
+                        <i class="fas fa-trash mr-2"></i> Clear All
+                    </button>
+                </div>
+            </div>
+            
+            <div id="taskList" class="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                <div id="emptyState" class="p-8 text-center text-gray-500">
+                    <i class="fas fa-tasks text-4xl mb-2"></i>
+                    <p class="text-lg">No tasks available</p>
+                    <p class="text-sm">Add your first task to get started</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Clear All Confirmation Modal -->
+        <div id="clearAllModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirm Action</h3>
+                <p class="text-gray-600 mb-6">Are you sure you want to delete all tasks? This action cannot be undone.</p>
+                <div class="flex justify-end gap-3">
+                    <button 
+                        id="cancelClearBtn" 
+                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        id="confirmClearBtn" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                        Delete All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const taskInput = document.getElementById('taskInput');
+            const addTaskBtn = document.getElementById('addTaskBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            const taskList = document.getElementById('taskList');
+            const emptyState = document.getElementById('emptyState');
+            const taskCounter = document.getElementById('taskCounter');
+            const filterSelect = document.getElementById('filterSelect');
+            const exportBtn = document.getElementById('exportBtn');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            const clearAllModal = document.getElementById('clearAllModal');
+            const cancelClearBtn = document.getElementById('cancelClearBtn');
+            const confirmClearBtn = document.getElementById('confirmClearBtn');
+            
+            // State
+            let tasks = [];
+            let currentFilter = 'all';
+            
+            // Initialize the app
+            init();
+            
+            function init() {
+                loadTasks();
+                renderTaskList();
+                setupEventListeners();
+            }
+            
+            function loadTasks() {
+                const savedTasks = localStorage.getItem('tasks');
+                if (savedTasks) {
+                    tasks = JSON.parse(savedTasks);
+                }
+                updateTaskCounter();
+            }
+            
+            function saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                updateTaskCounter();
+            }
+            
+            function updateTaskCounter() {
+                const totalTasks = tasks.length;
+                const completedTasks = tasks.filter(task => task.completed).length;
+                taskCounter.textContent = `Tasks: ${totalTasks} (${completedTasks} completed)`;
+                
+                // Show/hide empty state
+                if (tasks.length === 0) {
+                    emptyState.classList.remove('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                }
+            }
+            
+            function setupEventListeners() {
+                // Add task
+                addTaskBtn.addEventListener('click', addTask);
+                taskInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        addTask();
+                    }
+                });
+                
+                // Filter tasks
+                filterSelect.addEventListener('change', function() {
+                    currentFilter = this.value;
+                    renderTaskList();
+                });
+                
+                // Export tasks
+                exportBtn.addEventListener('click', exportTasks);
+                
+                // Clear all tasks
+                clearAllBtn.addEventListener('click', showClearAllModal);
+                cancelClearBtn.addEventListener('click', hideClearAllModal);
+                confirmClearBtn.addEventListener('click', clearAllTasks);
+            }
+            
+            function addTask() {
+                const taskText = taskInput.value.trim();
+                
+                if (!taskText) {
+                    errorMessage.classList.remove('hidden');
+                    taskInput.focus();
+                    return;
+                }
+                
+                errorMessage.classList.add('hidden');
+                
+                const newTask = {
+                    id: Date.now(),
+                    text: taskText,
+                    completed: false,
+                    order: tasks.length
+                };
+                
+                tasks.push(newTask);
+                saveTasks();
+                renderTaskList();
+                
+                // Clear input and focus
+                taskInput.value = '';
+                taskInput.focus();
+            }
+            
+            function renderTaskList() {
+                // Clear the task list
+                taskList.innerHTML = '';
+                
+                // Filter tasks based on current filter
+                let filteredTasks = [];
+                
+                switch (currentFilter) {
+                    case 'active':
+                        filteredTasks = tasks.filter(task => !task.completed);
+                        break;
+                    case 'completed':
+                        filteredTasks = tasks.filter(task => task.completed);
+                        break;
+                    default:
+                        filteredTasks = [...tasks];
+                }
+                
+                // Sort by order
+                filteredTasks.sort((a, b) => a.order - b.order);
+                
+                if (filteredTasks.length === 0) {
+                    let message = '';
+                    switch (currentFilter) {
+                        case 'active':
+                            message = 'No active tasks';
+                            break;
+                        case 'completed':
+                            message = 'No completed tasks';
+                            break;
+                        default:
+                            message = 'No tasks available';
+                    }
+                    
+                    const emptyFilterState = document.createElement('div');
+                    emptyFilterState.className = 'p-8 text-center text-gray-500';
+                    emptyFilterState.innerHTML = `
+                        <i class="fas fa-tasks text-4xl mb-2"></i>
+                        <p class="text-lg">${message}</p>
+                    `;
+                    taskList.appendChild(emptyFilterState);
+                    return;
+                }
+                
+                // Render each task
+                filteredTasks.forEach((task, index) => {
+                    const taskElement = createTaskElement(task);
+                    taskList.appendChild(taskElement);
+                    
+                    // Add fade-in animation for new tasks
+                    if (index === filteredTasks.length - 1 && task.id > Date.now() - 1000) {
+                        taskElement.classList.add('fade-in');
+                    }
+                });
+                
+                // Setup drag and drop
+                setupDragAndDrop();
+            }
+            
+            function createTaskElement(task) {
+                const taskElement = document.createElement('div');
+                taskElement.className = 'task-item p-4 flex items-center hover:bg-gray-50 transition-colors cursor-move';
+                taskElement.setAttribute('draggable', 'true');
+                taskElement.dataset.id = task.id;
+                
+                // Checkbox
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'mr-3 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer';
+                checkbox.checked = task.completed;
+                checkbox.addEventListener('change', () => toggleTaskCompletion(task.id));
+                checkbox.setAttribute('aria-label', task.completed ? 'Mark task as incomplete' : 'Mark task as complete');
+                
+                // Task text
+                const taskText = document.createElement('div');
+                taskText.className = `flex-1 truncate ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`;
+                taskText.textContent = task.text;
+                taskText.title = task.text; // Tooltip
+                
+                // Edit functionality
+                taskText.addEventListener('dblclick', () => {
+                    editTask(task.id, taskText);
+                });
+                
+                // Remove button
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'ml-2 p-2 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-100';
+                removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeTask(task.id);
+                });
+                removeBtn.setAttribute('aria-label', 'Remove task');
+                
+                // Append elements
+                taskElement.appendChild(checkbox);
+                taskElement.appendChild(taskText);
+                taskElement.appendChild(removeBtn);
+                
+                return taskElement;
+            }
+            
+            function editTask(taskId, taskTextElement) {
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
+                
+                const originalText = task.text;
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = originalText;
+                input.className = 'flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500';
+                
+                // Replace text with input
+                taskTextElement.replaceWith(input);
+                input.focus();
+                
+                // Save on Enter, blur or Escape
+                const saveEdit = () => {
+                    const newText = input.value.trim();
+                    if (newText && newText !== originalText) {
+                        task.text = newText;
+                        saveTasks();
+                    }
+                    
+                    // Recreate task text element
+                    const newTaskText = document.createElement('div');
+                    newTaskText.className = `flex-1 truncate ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`;
+                    newTaskText.textContent = task.text;
+                    newTaskText.title = task.text;
+                    newTaskText.addEventListener('dblclick', () => {
+                        editTask(taskId, newTaskText);
+                    });
+                    
+                    input.replaceWith(newTaskText);
+                };
+                
+                input.addEventListener('blur', saveEdit);
+                input.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') {
+                        saveEdit();
+                    } else if (e.key === 'Escape') {
+                        // Revert to original text
+                        const newTaskText = document.createElement('div');
+                        newTaskText.className = `flex-1 truncate ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`;
+                        newTaskText.textContent = originalText;
+                        newTaskText.title = originalText;
+                        newTaskText.addEventListener('dblclick', () => {
+                            editTask(taskId, newTaskText);
+                        });
+                        
+                        input.replaceWith(newTaskText);
+                    }
+                });
+            }
+            
+            function toggleTaskCompletion(taskId) {
+                const taskIndex = tasks.findIndex(task => task.id === taskId);
+                if (taskIndex === -1) return;
+                
+                tasks[taskIndex].completed = !tasks[taskIndex].completed;
+                saveTasks();
+                renderTaskList();
+            }
+            
+            function removeTask(taskId) {
+                tasks = tasks.filter(task => task.id !== taskId);
+                
+                // Reorder remaining tasks
+                tasks.forEach((task, index) => {
+                    task.order = index;
+                });
+                
+                saveTasks();
+                renderTaskList();
+            }
+            
+            function setupDragAndDrop() {
+                const taskItems = document.querySelectorAll('.task-item');
+                
+                taskItems.forEach(taskItem => {
+                    taskItem.addEventListener('dragstart', () => {
+                        taskItem.classList.add('dragging');
+                    });
+                    
+                    taskItem.addEventListener('dragend', () => {
+                        taskItem.classList.remove('dragging');
+                    });
+                });
+                
+                taskList.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    const draggingItem = document.querySelector('.dragging');
+                    if (!draggingItem) return;
+                    
+                    const afterElement = getDragAfterElement(taskList, e.clientY);
+                    const currentId = parseInt(draggingItem.dataset.id);
+                    
+                    if (afterElement) {
+                        const afterId = parseInt(afterElement.dataset.id);
+                        
+                        // Find the indices of the dragged item and the item after
+                        const currentIndex = tasks.findIndex(task => task.id === currentId);
+                        const afterIndex = tasks.findIndex(task => task.id === afterId);
+                        
+                        if (currentIndex !== -1 && afterIndex !== -1) {
+                            // Remove the dragged item
+                            const [draggedTask] = tasks.splice(currentIndex, 1);
+                            
+                            // Insert it after the afterElement
+                            tasks.splice(afterIndex, 0, draggedTask);
+                            
+                            // Update order property
+                            tasks.forEach((task, index) => {
+                                task.order = index;
+                            });
+                            
+                            saveTasks();
+                        }
+                    }
+                    
+                    // Visual feedback
+                    const siblings = [...taskList.querySelectorAll('.task-item:not(.dragging)')];
+                    siblings.forEach(item => {
+                        const rect = item.getBoundingClientRect();
+                        const middle = rect.top + rect.height / 2;
+                        
+                        if (e.clientY < middle) {
+                            item.classList.add('drag-over');
+                        } else {
+                            item.classList.remove('drag-over');
+                        }
+                    });
+                });
+                
+                taskList.addEventListener('dragleave', () => {
+                    const siblings = [...taskList.querySelectorAll('.task-item')];
+                    siblings.forEach(item => {
+                        item.classList.remove('drag-over');
+                    });
+                });
+                
+                taskList.addEventListener('drop', () => {
+                    const siblings = [...taskList.querySelectorAll('.task-item')];
+                    siblings.forEach(item => {
+                        item.classList.remove('drag-over');
+                    });
+                    
+                    renderTaskList();
+                });
+            }
+            
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.task-item:not(.dragging)')];
+                
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+            
+            function showClearAllModal() {
+                clearAllModal.classList.remove('hidden');
+            }
+            
+            function hideClearAllModal() {
+                clearAllModal.classList.add('hidden');
+            }
+            
+            function clearAllTasks() {
+                tasks = [];
+                saveTasks();
+                renderTaskList();
+                hideClearAllModal();
+            }
+            
+            function exportTasks() {
+                const completedTasks = tasks.filter(task => task.completed).map(task => task.text);
+                const incompleteTasks = tasks.filter(task => !task.completed).map(task => task.text);
+                
+                let exportText = 'TODO LIST EXPORT\n\n';
+                
+                if (incompleteTasks.length > 0) {
+                    exportText += 'INCOMPLETE TASKS:\n';
+                    incompleteTasks.forEach(task => {
+                        exportText += `- ${task}\n`;
+                    });
+                    exportText += '\n';
+                }
+                
+                if (completedTasks.length > 0) {
+                    exportText += 'COMPLETED TASKS:\n';
+                    completedTasks.forEach(task => {
+                        exportText += `- ${task}\n`;
+                    });
+                }
+                
+                if (tasks.length === 0) {
+                    exportText += 'No tasks to export';
+                }
+                
+                // Create download link
+                const timestamp = new Date().toISOString().split('T')[0];
+                const filename = `Todo_List_${timestamp}.txt`;
+                
+                const blob = new Blob([exportText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>
